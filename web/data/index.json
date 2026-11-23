@@ -1,9 +1,16 @@
 {
   "schemaVersion": 1,
   "firstCapturedAt": "2026-11-23T08:07:37Z",
-  "lastSuccessfulAt": "2026-11-23T08:07:37Z",
+  "lastSuccessfulAt": "2026-11-23T08:22:33Z",
   "retentionLimit": 120,
   "captures": [
+    {
+      "file": "20261123T082233Z-20933fad.json",
+      "capturedAt": "2026-11-23T08:22:33Z",
+      "count": 113,
+      "partial": false,
+      "sha256": "20933fade7a4685c0f457141378d716fd6381af54cbf3aea5ff290684b80101a"
+    },
     {
       "file": "20261123T080737Z-5e6db7d0.json",
       "capturedAt": "2026-11-23T08:07:37Z",

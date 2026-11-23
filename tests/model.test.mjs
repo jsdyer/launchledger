@@ -1,21 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanLines } from '../web/model.mjs';
-test('trims, removes blanks and preserves first-seen order', () => {
-  assert.deepEqual(cleanLines('  Halifax\nLangley\nHalifax\n\nVancouver  '), {
-    text: 'Halifax\nLangley\nVancouver', count: 3, removed: 1,
-  });
-});
-test('supports Windows and old Mac line endings', () => {
-  assert.equal(cleanLines('a\r\nb\ra').text, 'a\nb');
-});
-test('empty text and whitespace produce an empty result', () => {
-  assert.deepEqual(cleanLines(' \n\t'), { text: '', count: 0, removed: 0 });
-});
-test('preserves case and Unicode', () => {
-  assert.equal(cleanLines('Québec\nquébec\n東京\nQuébec').text, 'Québec\nquébec\n東京');
-});
-test('treats markup as ordinary text', () => {
-  assert.equal(cleanLines('<script>alert(1)</script>\n<script>alert(1)</script>').text, '<script>alert(1)</script>');
-});
-test('rejects non-text input', () => { assert.throws(() => cleanLines(null), TypeError); });
+import {readFileSync} from 'node:fs';
+import {validateCapture,changes,comparison,filterLaunches,formatTime,shiftText,toCsv,sourceUrl} from '../web/model.mjs';
+const index=JSON.parse(readFileSync(new URL('../web/data/index.json',import.meta.url)));
+const retained=JSON.parse(readFileSync(new URL('../web/data/'+index.captures[0].file,import.meta.url)));
+const original={id:'00000000-0000-4000-8000-000000000001',name:'Test launch',net:'2026-11-23T12:00:00Z',lastUpdated:'2026-11-22T10:00:00Z',precision:{name:'Minute'},status:{id:1,name:'Go for Launch'},provider:'Test provider',pad:'Test pad'};
+const saved={...retained,launches:[original,{...original,id:'00000000-0000-4000-8000-000000000002',name:'Other launch'}]};
+const copy=x=>structuredClone(x);
+test('the published capture is valid real data with bounded coverage',()=>{assert.equal(validateCapture(retained),retained);assert.ok(retained.launches.length<=406);assert.ok(retained.coverage.requests<=8);assert.ok(retained.requestUrls.every(u=>u.startsWith('https://ll.thespacedevs.com/2.3.0/')));});
+test('comparison matches UUIDs, records times and status, and treats absence separately',()=>{const old=copy(saved),next=copy(saved);next.launches[0].net='2027-02-03T10:00:00Z';next.launches[0].status.name='To Be Determined';next.launches.pop();const result=comparison(next,old);assert.equal(result.changed.length,1);assert.equal(result.absent.length,1);assert.ok(result.changed[0].diff.some(d=>d.key==='net'));assert.equal(comparison(next,null).changed.length,0);assert.deepEqual(changes(original,{...original,id:'another'}),[]);});
+test('search and date/provider/status/pad filters work on retained data',()=>{assert.equal(filterLaunches(saved.launches,{query:original.id}).length,1);assert.ok(filterLaunches(saved.launches,{provider:original.provider}).every(r=>r.provider===original.provider));assert.equal(filterLaunches(saved.launches,{query:'impossible-zxy987'}).length,0);assert.equal(filterLaunches(saved.launches,{changedOnly:true,changedIds:new Set([original.id])}).length,1);assert.equal(filterLaunches(saved.launches,{from:'2099-01-01'}).length,0);});
+test('broad precision never fabricates a precise countdown or exact delay',()=>{assert.equal(formatTime('2027-03-01T00:00:00Z','Month'),'Mar 2027 · month precision');assert.equal(formatTime('2027-01-01T00:00:00Z','Quarter 1'),'Q1 2027 · quarter precision');assert.equal(formatTime('2027-12-31T00:00:00Z','Year'),'2027 · year precision');const a={...original,net:'2027-01-01T00:00:00Z',precision:{name:'Month'}};const b={...a,net:'2027-02-01T00:00:00Z'};assert.match(shiftText(a,b),/precision may be broad/);assert.match(shiftText({...a,precision:{name:'Minute'}},{...b,precision:{name:'Minute'}}),/31 days later/);});
+test('CSV quotes commas and neutralizes spreadsheet formula values',()=>{const csv=toCsv([{...original,name:'=SUM(1,2)',provider:'A "quoted" provider'}]);assert.ok(csv.includes('"\'=SUM(1,2)"'));assert.ok(csv.includes('A ""quoted"" provider'));});
+test('import rejects duplicate IDs, bad timestamps and malformed rows',()=>{const duplicate=copy(saved);duplicate.launches.push(copy(duplicate.launches[0]));assert.throws(()=>validateCapture(duplicate),/duplicate/);const invalid=copy(saved);invalid.launches[0].net='not a date';assert.throws(()=>validateCapture(invalid),/timestamp/);assert.throws(()=>validateCapture({schemaVersion:2}),/not a Launch/);assert.equal(sourceUrl({id:'javascript:alert(1)'}),null);});

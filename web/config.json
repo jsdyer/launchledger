@@ -1,0 +1,12 @@
+{
+  "apiBase": "https://ll.thespacedevs.com/2.3.0",
+  "lookbackDays": 14,
+  "lookaheadDays": 90,
+  "search": "",
+  "providerId": "",
+  "watchIds": [],
+  "pageSize": 100,
+  "maxPages": 2,
+  "maxRequests": 8,
+  "historyLimit": 120
+}

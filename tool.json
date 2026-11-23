@@ -1,16 +1,23 @@
 {
-  "id": "coolcode-tool-template",
-  "title": "CoolCode Tool Starter",
-  "description": "A browser-only example that trims lines and removes exact duplicates.",
-  "category": "security",
-  "tags": ["text", "lines", "duplicates"],
-  "icon": "scan-search",
-  "url": "/coolcode-tool-template/",
-  "source": "https://github.com/jsdyer/coolcode-tool-template",
+  "id": "launchledger",
+  "title": "Launch Ledger",
+  "description": "Keep a dated record of launch schedules, compare changes and follow provider-reported outcomes.",
+  "category": "field-kit",
+  "tags": [
+    "space",
+    "launches",
+    "history",
+    "receipts",
+    "astronomy"
+  ],
+  "icon": "history",
+  "url": "/launchledger/",
+  "source": "https://github.com/jsdyer/launchledger",
   "hosting": "project",
   "access": "browser",
   "data_info": {
-    "mode": "local",
-    "detail": "The browser reads the text you paste and compares its lines."
+    "mode": "snapshot",
+    "detail": "Daily Launch Library 2 captures retain announced launch times, precision and reported status for a configurable date window and watchlist.",
+    "cadence": "Daily"
   }
 }

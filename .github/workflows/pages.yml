@@ -1,42 +1,75 @@
-name: Browser tool · Check and publish
+name: Launch Ledger · Capture, check and publish
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: '43 5 * * *'
   workflow_dispatch:
+    inputs:
+      refresh:
+        description: Collect a new dated Launch Library capture
+        type: boolean
+        default: true
 permissions:
   contents: read
+concurrency:
+  group: launchledger-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
     outputs:
       publish: ${{ steps.identity.outputs.publish }}
     steps:
       - uses: actions/checkout@v6
         with:
-          persist-credentials: false
+          fetch-depth: 0
+          persist-credentials: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+      - name: Decide whether to refresh
+        id: refresh
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          REQUEST_REFRESH: ${{ inputs.refresh }}
+        run: |
+          refresh=false
+          if [ "$EVENT" = schedule ] || { [ "$EVENT" = workflow_dispatch ] && [ "$REQUEST_REFRESH" = true ]; }; then
+            refresh=true
+          elif [ "$EVENT" = push ]; then
+            if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              refresh=true
+            elif [ -n "$(git diff --name-only "$BEFORE" "$GITHUB_SHA" -- web/config.json scripts/refresh.py)" ]; then
+              refresh=true
+            fi
+          fi
+          echo "run=$refresh" >> "$GITHUB_OUTPUT"
+      - name: Collect a bounded, dated capture
+        if: steps.refresh.outputs.run == 'true' && github.ref == 'refs/heads/main'
+        run: python3 scripts/refresh.py
       - name: Test the application
         run: node --test tests/*.test.mjs
-      - name: Test the builder
+      - name: Test the collector and builder
         run: python3 -m unittest discover -s tests -v
       - name: Build the static application
         run: python3 scripts/build.py
-      - name: Check whether the tool has been initialized
+      - name: Check repository identity
         id: identity
         env:
           REPOSITORY_NAME: ${{ github.event.repository.name }}
         run: |
           python3 - <<'PY'
           import json, os
-          tool_id = json.load(open('tool.json'))['id']
-          ready = tool_id != 'coolcode-tool-template' and tool_id == os.environ['REPOSITORY_NAME']
+          ready = json.load(open('tool.json'))['id'] == os.environ['REPOSITORY_NAME'] == 'launchledger'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'publish={str(ready).lower()}\n')
           PY
@@ -46,6 +79,16 @@ jobs:
           python3 -m playwright install --with-deps chromium
       - name: Check application in a browser
         run: python3 tests/browser_smoke.py
+      - name: Preserve checked captures in the repository
+        if: steps.refresh.outputs.run == 'true' && github.ref == 'refs/heads/main' && steps.identity.outputs.publish == 'true'
+        run: |
+          git add web/data/
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Retain dated Launch Library capture'
+            git push origin HEAD:main
+          fi
       - name: Save browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,7 +99,7 @@ jobs:
       - name: Save reviewable site
         uses: actions/upload-artifact@v4
         with:
-          name: browser-tool-preview
+          name: launchledger-preview
           path: dist/
           include-hidden-files: true
           retention-days: 7
@@ -70,9 +113,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
     permissions:
       pages: write
       id-token: write

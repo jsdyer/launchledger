@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "firstCapturedAt": "2026-11-23T08:07:37Z",
+  "lastSuccessfulAt": "2026-11-23T08:07:37Z",
+  "retentionLimit": 120,
+  "captures": [
+    {
+      "file": "20261123T080737Z-5e6db7d0.json",
+      "capturedAt": "2026-11-23T08:07:37Z",
+      "count": 113,
+      "partial": false,
+      "sha256": "5e6db7d04cc889506ed2b7b50f7e3a679af43a9bd582de25a243873c990ced51"
+    }
+  ]
+}
